@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Script: bash_exercises_fasta_fastq.sh
+# Author: Isis Sebastião
+# Description: Bash exercises aiming to consolidate essential commands for Fasta and FASTQ files manipulation 
+#              for bioinformatics. 
+#              Separated by level of difficulty.
+# =============================================================================
+
+# =============================================================================
+# Motivation: To reinforce my bash training and to practice the commands in a more practical way.
+#             I will create a bash script with exercises that I can run and test my knowledge. 
+#             The exercises will cover fata and FASTQ file handling, including sequence counting, 
+#             header extraction, file splitting, and basic quality checks. 
+# =============================================================================
+
+# =============================================================================
+#             Basic level:
+# =============================================================================
+# You have a FASTA file named "genome.fasta" containing multiple scaffolds.
+# Count the number of scaffolds.
+number_of_scaffolds=$(grep -c "^>" genome.fasta)
+echo "Number of scaffolds: $number_of_scaffolds"
+# Count the total length of all sequences in the FASTA file. Do not count the header lines and line breaks.
+total_sequence_length=$(grep -v "^>" genome.fasta | tr -d '\n' | wc -c)
+echo "Total sequence length: $total_sequence_length"
+#Count the length of scaffolds and print the length of the longest scaffold. Use the command awk.
+awk '/^>/{if (seq) print name, length(seq);
+        name=$0; seq=""}
+    !/^>/{seq=seq$0}
+    END {if (seq) print name, length(seq)}' genome.fasta | sort -k2 -nr | head -n1  
+
+# =============================================================================
+#             Intermediate level:
+# =============================================================================
+
+# You have six FASTQ files in the folder named "data/reads/:ctrl_1.fastq to ctrl_3.fastq and 
+# treat_1.fastq to treat_3.fastq.Write a loop to count the reads into each file and save a report in
+# logs/reads_counts.txt with the sample name and number of reads per line. 
+
+mkdir -p logs
+echo -e "sample\treads" > logs/reads_counts.txt
+
+for FASTQ in data/reads/*.fastq; do 
+    SAMPLE=$(basename "$FASTQ" .fastq) 
+    N_READS=$(( $(wc -l < "$FASTQ") / 4 ))
+    echo "$SAMPLE\t$N_READS" >> logs/reads_counts.txt
+done
+
+cat logs/reads_counts.txt
+
+# =============================================================================
+#             Advanced level:
+# =============================================================================
+
+# Write a complete script that processes all genomes in data/genomes/: for each one, checks if the file exists,
+# counts scaffolds and calculates the total size, and logs everything in a report with
+# a unique name based on the date and time. If a file is not found, log the error and continue to the next.
+
+LOG="logs/qc_$(date +%Y%m%d_%H%M%S).log" # create a unique log file name based on the current date and time
+echo "===Genome QC Report===" > "$LOG" # write header to log file
+echo "Date: $(date)" >> "$LOG" # add date to log file
+echo "" >> "$LOG" # loop through each FASTA file in the data/genomes/ directory
+
+for FASTA in data/genomes/*.fasta; do
+    NAME=$(basename "$FASTA" .fasta)
+    if [ ! -f "$FASTA" ]; then # check if file exists, if not log error and continue to next
+        echo "ERROR: $NAME not found." >> "$LOG"
+        continue
+    fi
+    N_SEQ=$(grep -c "^>" "$FASTA") # count number of scaffolds
+    TOTAL=$(grep -v "^>" "$FASTA" | tr -d '\n' | wc -c) # calculate total size of sequences
+
+    echo "$NAME: $N_SEQ scaffolds, $TOTAL bp" >> "$LOG"
+    echo " Processed: $NAME" 
+done
+
+echo "" >> "$LOG" # add a final message to log file
+echo "Done: $(date)" >> "$LOG" # print the log file to the console
+cat "$LOG" # display the log file content in the terminal
